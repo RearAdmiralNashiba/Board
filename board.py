@@ -1,114 +1,150 @@
 import random
 
-size = 10#int(input("What will be the size of our fair grid?"))
-
+dim = 8
 board = []
-for i in range(size):
-    board.append([])
-    for j in range(size):
-        board[i].append(j)
+pieces = []
+dead_pieces = []
+teams = ['Red', 'Blue', 'Green', 'Yellow', 'Pink', 'Teal, maybe']
+terrain = ['Farmland', 'Grassland', 'Coastline', 'Dryland']
+names = ["Wang", "Smith", "Devi", "Ivanov", "Kim"]
+types = ["Rock Infantry", "Scissors Cavalry", "Paper Skirmisher"]
+moves = {"a" : [-1, 0], "d" : [1, 0], "w" : [0, 1], "s" : [0, -1]}
+# moves = {"Left" : [-1, 0], "Right" : [0, 1], "Up" : [0, 1], "Down" : [0, -1]}
+# moves = {K_LEFT : [-1, 0], K_RIGHT : [0, 1], K_UP : [0, 1], K_DOWN : [0, -1]}
+turn_count = 0
 
-cards = ['w', 'a', 's', 'd']
-rng_space = random.randrange(0, size)
-enemies = []
-items = []
+class Space:
+    def __init__(self, loc, type):
+        self.loc = loc
+        self.type = type
 
-class Piece():
-    def __init__(self, x, y):
-        self.location = [x, y]
-        self.alive = True
-        self.direction = random.choice(cards)
+    def __str__(self):
+        return f"A space at coordinates {self.loc}, terrain type {self.type}."
+
+class Piece:  
+    def __init__(self, name, team, loc, type, live=1):
+        self.live = live
+        self.name = name
+        self.team = team
+        self.loc = loc
+        self.type = type
+
+    def __str__(self):
+        return f"A {self.team} {self.type} named {self.name} {self.loc}"
 
     def die(self):
-        self.alive = False
+        self.live = 0
+        print(f"{self} has died")
 
-    def move(self):
-        self.path()
-        if self.can_move():
-            if self.direction == 'w':
-                self.location[1] -= 1
-            elif self.direction == 's':
-                self.location[1] += 1
-            elif self.direction == 'a':
-                self.location[0] -= 1
-            elif self.direction == 'd':
-                self.location[0] += 1
+    def move(self, target):#Reworking targeting
+        x_lims = self.loc[0] + moves[target][0]
+        y_lims = self.loc[1] + moves[target][1]
+        if space_occ([x_lims, y_lims]):
+            if self.fight(space_occ([x_lims, y_lims])):
+                self.loc = [x_lims, y_lims]
+                print(f"{self} has moved to {self.loc}.")
+        else:
+            self.loc = [x_lims, y_lims]
+            print(f"{self} has moved to {self.loc}.")
 
-    def can_move(self):
-        return not ((self.direction == 'w' and self.location[1] == 0) or \
-        (self.direction == 'a' and self.location[0] == 0) or \
-        (self.direction == 's' and self.location[1] == size) or \
-        (self.direction == 'd' and self.location[0] == size))
+    def fight(self, target):#RPS version
+        if self.type == target.type:
+            print("The combatants tie \n")
+            pass
+        elif ((self.type == types[0]) and (target.type == types[1])) \
+        or ((self.type == types[1]) and (target.type == types[2])) \
+        or ((self.type == types[2]) and (target.type == types[0])):
+            print(f"{self} has defeated {target} \n")
+            target.die()
+            return True
+        else:
+            print(f"{self} has been defeated by {target} \n")
+            self.die()
+            return False
 
-    # def turn(d):
-    #     if not self.can_move():
-    #         self.direction = d
-    #         if not self.can_move():
-    #             self.direction = random.choice(cards)
+def create_board():
+    for i in range(dim):
+        board.append([])
+        for j in range(dim):
+            board[i].append(Space((i, j), random.choice(terrain)))
+    return board
 
-class Player(Piece):
-    def __init__(self):
-        self.inventory = []
+def new_game():
+    create_board()
+    turn_count = 0
+    print("\n - - - New Game - - - \n")
+    new_turn()
 
-    def path(self):
-        self.direction = input("(Move) > ")
+def space_check():
+    for i in board:
+        for j in i:
+            print(j)
 
-class Enemy(Piece):
-    def kill_check(self):
-        if self.location == Player.location:
-            Player.die()
+def piece_check():
+    for d in pieces:
+        if not d.live:
+            pieces.remove(d)
+            dead_pieces.append(d)
+    print("Pieces on the board: \n")
+    for i in pieces:
+        print ((i), f"occupying space {i.loc} \n")
+    if len(dead_pieces) > 0:
+        print("Dead pieces: \n")
+        for i in dead_pieces:
+            print(i)
+    else:
+        print("No dead pieces. \n")
 
-class Item(Piece):
-    pass
+def spawn_piece_rand():
+    target = [random.randrange(dim), random.randrange(dim)]
+    if len(pieces) <= 1:
+        for i in pieces:
+            if i.loc == target:
+                print ("The target spawn point was already occupied")
+    pieces.append(Piece(random.choice(names), target, random.choice(types)))
 
-class Key(Item):
-    pass
+def spawn_piece(x, y, team, type):
+    target = [x, y]
+    if len(pieces) <= 1:
+        for i in pieces:
+            if i.loc == target:
+                print ("The target spawn point was already occupied")
+    pieces.append(Piece(random.choice(names), team, target, type))
 
-class Shoe(Item):
-    pass
+def new_turn():
+    global turn_count
+    turn_count += 1
+    # space_check()
+    piece_check()
+    print("Fresh turn \n")
+    for i in pieces:
+        if i.live:
+            turn_prompt(i)
 
-class Blob(Enemy):
-    def __str__(self):
-        return "inscrutable blob, erratically plodding"
+def turn_prompt(piece):
+    action = input("1. Move 2. Attack > ")
+    if action == "1":
+        move = input("Direction > ")
+        piece.move(move)
+    elif action == "2":
+        target = moves[input("Direction > ")]
+        if space_occ(target):
+            piece.fight(space_occ(target))
+        else:
+            print("Space was not occupied \n")
+        # piece.fight(target)
+    else:
+        print("Invalid entry, probably")
+        turn_prompt(piece)
 
-    def path(self):
-        self.direction = random.choice(['w', 'a', 's', 'd'])
+def space_occ(space):
+    for i in pieces:
+        if i.loc == space:
+            return i
 
-class Ball(Enemy):
-    def __str__(self):
-        return "loyal ball, steadliy oscillating"
+new_game()
+spawn_piece(0, 0, teams[0], types[0])
+spawn_piece(1, 0, teams[1], types[1])
 
-    def path(self):
-        if not self.can_move():
-            if self.direction == 'w':
-                self.direction = 's'
-            elif self.direction == 'a':
-                self.direction = 'd'
-            elif self.direction == 's':
-                self.direction = 'w'
-            elif self.direction == 'd':
-                self.direction = 'a'
-
-class Walker(Enemy):
-    def __str__(self):
-        return "preoccupied walker, heedlessly lurching"
-
-    def path(self):
-        if not self.can_move():
-            self.direction = random.choice(cards)
-
-class Fireball(Enemy):
-    def __str__(self):
-        pass
-
-    def path(self):
-        self.turn()
-
-def enemy_tick(e):
-    for i in e:
-        i.move()
-        print(f"{i} is at {i.location()}")
-
-a = Blob(0,0)
-#a = Blob(rng_space, rng_space)
-enemy_tick(enemies)
+# for i in range(3):
+#     new_turn()
